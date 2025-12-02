@@ -5,3 +5,8 @@ pydantic
 pandas
 openpyxl
 python-dotenv
+tiktoken
+scikit-learn
+langchain-openai
+chromadb
+opik

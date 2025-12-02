@@ -1,7 +1,7 @@
 [project]
 name = "omnisupply-ai-multi-agent-supply-chain-intelligence-platform"
 version = "0.1.0"
-description = "Add your description here"
+description = "Multi-agent AI system for supply chain intelligence with LangGraph and Opik observability"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -12,4 +12,11 @@ dependencies = [
     "pandas>=2.3.3",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.1",
+    "duckdb>=1.0.0",
+    "plotly>=5.24.0",
+    "scikit-learn>=1.5.0",
+    "langchain-openai>=0.3.0",
+    "opik>=0.2.0",
+    "chromadb>=0.6.0",
+    "tiktoken>=0.9.0",
 ]
