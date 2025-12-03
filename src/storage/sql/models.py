@@ -16,7 +16,7 @@ class OrderDB(Base):
     """Order table"""
     __tablename__ = 'orders'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     order_id = Column(String(100), unique=True, nullable=False, index=True)
     order_date = Column(DateTime, nullable=False, index=True)
     ship_mode = Column(String(50))
@@ -50,7 +50,7 @@ class ShipmentDB(Base):
     """Shipment table"""
     __tablename__ = 'shipments'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     shipment_id = Column(String(100), unique=True, nullable=False, index=True)
     product_id = Column(String(100), index=True)
     origin_port = Column(String(100))
@@ -79,7 +79,7 @@ class InventoryDB(Base):
     """Inventory table"""
     __tablename__ = 'inventory'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     sku = Column(String(100), unique=True, nullable=False, index=True)
     product_id = Column(String(100), index=True)
     product_name = Column(String(255))
@@ -105,7 +105,7 @@ class FinancialTransactionDB(Base):
     """Financial transaction table"""
     __tablename__ = 'financial_transactions'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     transaction_id = Column(String(100), unique=True, nullable=False, index=True)
     transaction_date = Column(DateTime, nullable=False, index=True)
     transaction_type = Column(String(50), nullable=False, index=True)
@@ -131,7 +131,7 @@ class AgentExecutionLog(Base):
     """Track agent executions for observability"""
     __tablename__ = 'agent_executions'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     session_id = Column(String(100), index=True)
     agent_name = Column(String(100), nullable=False, index=True)
     query = Column(Text, nullable=False)
@@ -155,7 +155,7 @@ class ReportArchive(Base):
     """Store generated reports for retrieval"""
     __tablename__ = 'report_archive'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     report_id = Column(String(100), unique=True, nullable=False, index=True)
     report_type = Column(String(50), nullable=False, index=True)
     generated_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -178,7 +178,7 @@ class AlertLog(Base):
     """Track alerts sent to stakeholders"""
     __tablename__ = 'alert_log'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     alert_id = Column(String(100), unique=True, nullable=False, index=True)
     alert_type = Column(String(50), nullable=False, index=True)
     severity = Column(String(20), nullable=False, index=True)  # INFO, WARNING, CRITICAL

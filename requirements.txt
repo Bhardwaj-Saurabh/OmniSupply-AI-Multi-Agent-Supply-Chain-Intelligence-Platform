@@ -1,10 +1,11 @@
 # Core AI/ML
-openai
+openai<2.0.0,>=1.68.2
 langgraph
 langchain
 langchain-openai
 pydantic>=2.0.0
 tiktoken
+email-validator  # Required for EmailStr in Pydantic
 
 # Data Processing
 pandas
@@ -18,7 +19,10 @@ sqlalchemy>=2.0.0
 alembic
 chromadb
 duckdb
+duckdb-engine  # DuckDB SQLAlchemy driver
 psycopg2-binary  # PostgreSQL driver
+psycopg2-binary
+
 
 # API & Web
 fastapi

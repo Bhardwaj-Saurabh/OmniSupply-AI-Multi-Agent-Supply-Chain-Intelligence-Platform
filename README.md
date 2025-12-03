@@ -80,17 +80,25 @@ data/
 └── financial_data.csv
 ```
 
-### 4. Run Demo
+### 4. Run Complete Multi-Agent Demo
+
+```bash
+python omnisupply_demo.py
+```
+
+This will:
+- Load and validate all datasets (~400K+ records)
+- Store data in SQL database (DuckDB) and vector store (ChromaDB)
+- Initialize all 5 specialized agents
+- Test individual agent capabilities
+- Demonstrate Supervisor multi-agent orchestration
+- Generate executive reports with cross-agent insights
+
+**Alternative**: Run the basic example:
 
 ```bash
 python example_usage.py
 ```
-
-This will:
-- Load and validate all datasets
-- Store data in SQL and vector databases
-- Set up the agent registry
-- Demonstrate supervisor orchestration
 
 ---
 

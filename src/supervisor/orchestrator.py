@@ -37,12 +37,17 @@ class TaskPlan(BaseModel):
     expected_output: str = Field(description="What the final output should contain")
 
 
+class KPIItem(BaseModel):
+    """Individual KPI"""
+    name: str
+    value: str  # String to allow any format (numbers, percentages, etc.)
+
 class ExecutiveSummary(BaseModel):
     """LLM-structured output for final report"""
     summary: str = Field(description="2-3 paragraph executive summary")
     key_insights: List[str] = Field(description="3-5 key insights")
     recommendations: List[str] = Field(description="Top 3 recommended actions")
-    kpis: Dict[str, Any] = Field(description="Key performance indicators")
+    kpis: List[KPIItem] = Field(description="Key performance indicators as list")
 
 
 # Supervisor state
@@ -459,8 +464,9 @@ Make it executive-friendly: clear, concise, actionable.
 
         report += "\n---\n\n## Key Performance Indicators\n\n"
 
-        for kpi, value in summary.kpis.items():
-            report += f"- **{kpi}**: {value}\n"
+        # KPIs is now a list of KPIItem objects
+        for kpi_item in summary.kpis:
+            report += f"- **{kpi_item.name}**: {kpi_item.value}\n"
 
         report += "\n---\n\n## Detailed Results by Agent\n\n"
 

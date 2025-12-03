@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # Agent Settings
     AGENT_TEMPERATURE: float = Field(default=0.2, env="AGENT_TEMPERATURE")
-    AGENT_MAX_TOKENS: int = Field(default=4000, env="AGENT_MAX_TOKENS")
+    AGENT_MAX_TOKENS: int = Field(default=6000, env="AGENT_MAX_TOKENS")
     AGENT_TIMEOUT: int = Field(default=120, env="AGENT_TIMEOUT")  # seconds
 
     # Supervisor Settings

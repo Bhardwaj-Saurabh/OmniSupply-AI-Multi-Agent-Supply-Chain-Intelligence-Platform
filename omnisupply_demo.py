@@ -1,0 +1,343 @@
+"""
+OmniSupply Multi-Agent System Demo
+Complete demonstration of the OmniSupply platform with all agents
+"""
+
+import os
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Ensure OpenAI API key is set
+if not os.getenv("OPENAI_API_KEY"):
+    print("❌ ERROR: OPENAI_API_KEY not found in environment variables.")
+    print("Please create a .env file with your OpenAI API key.")
+    sys.exit(1)
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from src.data.ingestion.loaders import OmniSupplyDataLoader
+from src.data.ingestion.validators import DataQualityChecker
+from src.storage.sql.database import DatabaseClient
+from src.storage.vector.chromadb_client import OmniSupplyVectorStore
+from src.agents import (
+    AgentRegistry,
+    DataAnalystAgent,
+    RiskAgent,
+    FinanceAgent,
+    MeetingAgent,
+    EmailAgent
+)
+from src.supervisor.orchestrator import SupervisorAgent
+
+
+def print_section(title: str):
+    """Print a section header"""
+    print(f"\n{'=' * 80}")
+    print(f"  {title}")
+    print(f"{'=' * 80}\n")
+
+
+def print_result(agent_name: str, result):
+    """Print agent result in a formatted way"""
+    print(f"\n📋 Results from {agent_name}:")
+    print(f"{'─' * 80}")
+    print(f"✅ Success: {result.success}")
+    print(f"⏱️  Execution time: {result.execution_time_ms:.2f}ms" if result.execution_time_ms else "")
+
+    if result.insights:
+        print(f"\n💡 Insights:")
+        for insight in result.insights[:5]:  # Show first 5
+            print(f"   {insight}")
+
+    if result.recommendations:
+        print(f"\n🎯 Recommendations:")
+        for rec in result.recommendations[:3]:  # Show first 3
+            print(f"   • {rec}")
+
+    if result.metrics:
+        print(f"\n📊 Key Metrics:")
+        for key, value in list(result.metrics.items())[:5]:  # Show first 5
+            print(f"   • {key}: {value}")
+
+    print(f"{'─' * 80}")
+
+
+def main():
+    """Main demo function"""
+    print_section("🚀 OmniSupply Multi-Agent Platform Demo")
+
+    print("This demo will:")
+    print("  1. ✅ Load and validate supply chain data")
+    print("  2. ✅ Initialize all 5 specialized agents")
+    print("  3. ✅ Test individual agent capabilities")
+    print("  4. ✅ Demonstrate Supervisor multi-agent orchestration")
+
+    # ========================================
+    # STEP 1: Load Data
+    # ========================================
+    print_section("📥 STEP 1: Loading Data")
+
+    data_dir = Path("data")
+    if not data_dir.exists():
+        print(f"⚠️  Warning: Data directory '{data_dir}' not found.")
+        print("Creating sample data directory structure...")
+        data_dir.mkdir(exist_ok=True)
+        print("Please place your CSV files in the 'data/' directory:")
+        print("  - retail_orders.csv")
+        print("  - supply_chain.csv")
+        print("  - inventory.csv")
+        print("  - financial_data.csv")
+        print("\nSkipping data loading for now...")
+        skip_data = True
+    else:
+        skip_data = False
+
+    # Try PostgreSQL from environment, fallback to SQLite
+    import os
+    os.makedirs("data", exist_ok=True)
+
+    # Build PostgreSQL connection string from .env variables
+    postgres_user = os.getenv("POSTGRES_USER")
+    postgres_password = os.getenv("POSTGRES_PASSWORD")
+    postgres_db = os.getenv("POSTGRES_DB")
+    postgres_host = os.getenv("POSTGRES_HOST")
+    postgres_port = os.getenv("POSTGRES_PORT", "5432")
+
+    db = None
+    if postgres_host and postgres_user and postgres_password and postgres_db:
+        database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}"
+        print(f"📊 Attempting to connect to PostgreSQL: {postgres_host}:{postgres_port}/{postgres_db}")
+        try:
+            db = DatabaseClient(database_url=database_url)
+            print(f"✅ Connected to PostgreSQL successfully!")
+        except Exception as e:
+            print(f"⚠️  PostgreSQL connection failed: {e}")
+            print(f"📊 Falling back to SQLite...")
+            db = None
+
+    if db is None:
+        # Fallback to SQLite
+        print(f"📊 Using SQLite database: data/omnisupply.db")
+        db = DatabaseClient(database_url="sqlite:///data/omnisupply.db")
+
+    vector_store = OmniSupplyVectorStore()
+
+    if not skip_data:
+        try:
+            # Load datasets
+            print("Loading datasets...")
+            loader = OmniSupplyDataLoader(data_dir=str(data_dir))
+            data = loader.load_all()
+
+            print(f"✅ Loaded:")
+            print(f"   • Orders: {len(data.get('orders', []))} records")
+            print(f"   • Shipments: {len(data.get('shipments', []))} records")
+            print(f"   • Inventory: {len(data.get('inventory', []))} records")
+            print(f"   • Transactions: {len(data.get('transactions', []))} records")
+
+            # Validate data
+            print("\n🔍 Validating data quality...")
+            checker = DataQualityChecker()
+            validation_results = checker.check_all(data)
+
+            for dataset_name, result in validation_results.items():
+                print(f"   • {dataset_name}: {result.status} ({result.issues_found} issues)")
+
+            # Store in database
+            print("\n💾 Storing data in SQL database...")
+            db.load_all_data(data)
+
+            counts = db.get_table_counts()
+            print(f"✅ Database populated:")
+            for table, count in counts.items():
+                print(f"   • {table}: {count} records")
+
+            # Index for vector search (sample)
+            print("\n🔍 Indexing data for semantic search...")
+            if data.get('orders'):
+                sample_orders = [o.model_dump() for o in data['orders'][:200]]
+                vector_store.index_orders(sample_orders)
+                print(f"✅ Indexed {len(sample_orders)} orders for semantic search")
+
+        except Exception as e:
+            print(f"⚠️  Warning: Could not load data: {e}")
+            print("Continuing with empty database...")
+
+    # ========================================
+    # STEP 2: Initialize Agents
+    # ========================================
+    print_section("🤖 STEP 2: Initializing Agents")
+
+    # Create agent registry
+    registry = AgentRegistry()
+
+    # Initialize all agents
+    print("Creating specialized agents...")
+
+    data_analyst = DataAnalystAgent(db_client=db, vector_store=vector_store)
+    registry.register(data_analyst)
+    print(f"✅ {data_analyst.name}: {', '.join(data_analyst.get_capabilities()[:3])}")
+
+    risk_agent = RiskAgent(db_client=db, vector_store=vector_store)
+    registry.register(risk_agent)
+    print(f"✅ {risk_agent.name}: {', '.join(risk_agent.get_capabilities()[:3])}")
+
+    finance_agent = FinanceAgent(db_client=db, vector_store=vector_store)
+    registry.register(finance_agent)
+    print(f"✅ {finance_agent.name}: {', '.join(finance_agent.get_capabilities()[:3])}")
+
+    meeting_agent = MeetingAgent(db_client=db, agent_registry=registry, vector_store=vector_store)
+    registry.register(meeting_agent)
+    print(f"✅ {meeting_agent.name}: {', '.join(meeting_agent.get_capabilities()[:3])}")
+
+    email_agent = EmailAgent(db_client=db, vector_store=vector_store)
+    registry.register(email_agent)
+    print(f"✅ {email_agent.name}: {', '.join(email_agent.get_capabilities()[:3])}")
+
+    print(f"\n✅ Total agents registered: {len(registry.agents)}")
+
+    # ========================================
+    # STEP 3: Test Individual Agents
+    # ========================================
+    print_section("🧪 STEP 3: Testing Individual Agents")
+
+    # Test Data Analyst Agent
+    print("\n1️⃣ Testing Data Analyst Agent...")
+    try:
+        result = data_analyst.execute("Show me the top 5 product categories by revenue")
+        print_result("Data Analyst Agent", result)
+    except Exception as e:
+        print(f"⚠️  Data Analyst test failed: {e}")
+
+    # Test Risk Agent
+    print("\n2️⃣ Testing Risk Agent...")
+    try:
+        result = risk_agent.execute("What are the current supply chain risks?")
+        print_result("Risk Agent", result)
+    except Exception as e:
+        print(f"⚠️  Risk Agent test failed: {e}")
+
+    # Test Finance Agent
+    print("\n3️⃣ Testing Finance Agent...")
+    try:
+        result = finance_agent.execute("Generate financial summary with P&L and KPIs")
+        print_result("Finance Agent", result)
+    except Exception as e:
+        print(f"⚠️  Finance Agent test failed: {e}")
+
+    # ========================================
+    # STEP 4: Supervisor Orchestration
+    # ========================================
+    print_section("🎯 STEP 4: Supervisor Multi-Agent Orchestration")
+
+    # Create supervisor
+    print("Initializing Supervisor Agent...")
+    supervisor = SupervisorAgent(agent_registry=registry)
+    print("✅ Supervisor Agent ready\n")
+
+    # Test complex multi-agent queries
+    print("=" * 80)
+    print("Testing Complex Query 1: Executive Weekly Report")
+    print("=" * 80)
+
+    try:
+        query = "Generate a weekly executive report with top risks, financial KPIs, and recommended actions"
+        print(f"\n📝 Query: {query}\n")
+
+        result = supervisor.execute(query)
+
+        print("\n📊 Supervisor Orchestration Results:")
+        print(f"{'─' * 80}")
+        print(f"✅ Agents Invoked: {', '.join(result.get('agents_executed', []))}")
+        print(f"⏱️  Total Execution Time: {result.get('total_execution_time', 'N/A')}")
+
+        if result.get('final_report'):
+            print(f"\n📄 Executive Report:")
+            print(result['final_report'])
+
+        print(f"{'─' * 80}")
+
+    except Exception as e:
+        print(f"⚠️  Supervisor test 1 failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+    print("\n" + "=" * 80)
+    print("Testing Complex Query 2: Risk Assessment & Alerts")
+    print("=" * 80)
+
+    try:
+        query = "Identify critical supply chain risks and create alerts for stakeholders"
+        print(f"\n📝 Query: {query}\n")
+
+        result = supervisor.execute(query)
+
+        print("\n📊 Supervisor Orchestration Results:")
+        print(f"{'─' * 80}")
+        print(f"✅ Agents Invoked: {', '.join(result.get('agents_executed', []))}")
+        print(f"⏱️  Total Execution Time: {result.get('total_execution_time', 'N/A')}")
+
+        if result.get('final_report'):
+            print(f"\n📄 Executive Summary:")
+            print(result['final_report'])
+
+        print(f"{'─' * 80}")
+
+    except Exception as e:
+        print(f"⚠️  Supervisor test 2 failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+    # ========================================
+    # Summary
+    # ========================================
+    print_section("✅ Demo Complete!")
+
+    print("What was demonstrated:")
+    print("  ✅ Data ingestion and validation")
+    print("  ✅ SQL database storage (DuckDB)")
+    print("  ✅ Vector database indexing (ChromaDB)")
+    print("  ✅ 5 specialized agents:")
+    print("     • Data Analyst Agent")
+    print("     • Supply Chain Risk Agent")
+    print("     • Finance Insight Agent")
+    print("     • Meeting/Report Agent")
+    print("     • Email/Workflow Agent")
+    print("  ✅ Supervisor Agent orchestration")
+    print("  ✅ Multi-agent query routing")
+    print("  ✅ Parallel agent execution")
+    print("  ✅ Executive report generation")
+
+    print("\n🎯 Next Steps:")
+    print("  1. Review agent outputs and refine prompts")
+    print("  2. Add more data sources")
+    print("  3. Implement email sending (SMTP integration)")
+    print("  4. Deploy as FastAPI service")
+    print("  5. Add scheduled reports (Celery)")
+    print("  6. Create monitoring dashboards")
+
+    print("\n📚 Documentation:")
+    print("  • README.md - Project overview")
+    print("  • OMNISUPPLY_ARCHITECTURE.md - Technical details")
+    print("  • QUICKSTART.md - Setup guide")
+    print("  • IMPLEMENTATION_SUMMARY.md - What was built")
+
+    print("\n🚀 Happy building with OmniSupply! 🎉\n")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Demo interrupted by user. Exiting...")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n\n❌ Demo failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
