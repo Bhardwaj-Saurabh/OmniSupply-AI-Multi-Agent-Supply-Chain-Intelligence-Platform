@@ -10,3 +10,5 @@ scikit-learn
 langchain-openai
 chromadb
 opik
+prophet
+nbformat
