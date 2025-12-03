@@ -1,14 +1,44 @@
+# Core AI/ML
 openai
 langgraph
 langchain
-pydantic
-pandas
-openpyxl
-python-dotenv
-tiktoken
-scikit-learn
 langchain-openai
-chromadb
-opik
+pydantic>=2.0.0
+tiktoken
+
+# Data Processing
+pandas
+numpy
+openpyxl
+scikit-learn
 prophet
+
+# Storage
+sqlalchemy>=2.0.0
+alembic
+chromadb
+duckdb
+psycopg2-binary  # PostgreSQL driver
+
+# API & Web
+fastapi
+uvicorn[standard]
+httpx
+python-multipart
+aiofiles
+
+# Observability
+opik
+python-dotenv
+
+# Scheduling
+celery
+redis
+apscheduler
+
+# Development
 nbformat
+pytest
+pytest-asyncio
+black
+ruff
