@@ -237,14 +237,16 @@ class MeetingAgent(BaseAgent):
 
         try:
             # Get basic business metrics
-            metrics_query = """
+            date_interval_sql = self.db.get_date_interval_sql(30)
+
+            metrics_query = f"""
             SELECT
                 COUNT(*) as total_orders,
                 SUM(sale_price * quantity) as total_revenue,
                 SUM(profit * quantity) as total_profit,
                 AVG(sale_price * quantity) as avg_order_value
             FROM orders
-            WHERE order_date >= date('now', '-30 days')
+            WHERE order_date >= {date_interval_sql}
             """
             metrics = self.db.execute_query(metrics_query)
 

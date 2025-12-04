@@ -174,25 +174,27 @@ class FinanceAgent(BaseAgent):
 
         try:
             # Calculate revenue from orders (last 30 days)
-            revenue_query = """
+            date_interval_sql = self.db.get_date_interval_sql(30)
+
+            revenue_query = f"""
             SELECT
                 SUM(sale_price * quantity) as total_revenue,
                 SUM((sale_price - profit) * quantity) as total_cogs,
                 SUM(profit * quantity) as gross_profit,
                 COUNT(*) as total_orders
             FROM orders
-            WHERE order_date >= date('now', '-30 days')
+            WHERE order_date >= {date_interval_sql}
             """
 
             revenue_results = self.db.execute_query(revenue_query)
 
             # Calculate expenses from financial transactions
-            expense_query = """
+            expense_query = f"""
             SELECT
                 SUM(amount) as total_expenses
             FROM financial_transactions
             WHERE transaction_type = 'expense'
-            AND transaction_date >= date('now', '-30 days')
+            AND transaction_date >= {date_interval_sql}
             """
 
             expense_results = self.db.execute_query(expense_query)
@@ -241,7 +243,9 @@ class FinanceAgent(BaseAgent):
 
         try:
             # Get expense breakdown by category
-            query = """
+            date_interval_sql = self.db.get_date_interval_sql(30)
+
+            query = f"""
             SELECT
                 category,
                 SUM(amount) as total_amount,
@@ -250,7 +254,7 @@ class FinanceAgent(BaseAgent):
                 MAX(amount) as max_amount
             FROM financial_transactions
             WHERE transaction_type = 'expense'
-            AND transaction_date >= date('now', '-30 days')
+            AND transaction_date >= {date_interval_sql}
             GROUP BY category
             ORDER BY total_amount DESC
             """
@@ -313,15 +317,18 @@ Identify:
 
         try:
             # Get historical revenue and expense trends
-            query = """
+            date_interval_sql = self.db.get_date_interval_sql(180)  # 6 months = ~180 days
+            date_format_sql = self.db.get_date_format_sql('order_date', '%Y-%m')
+
+            query = f"""
             SELECT
-                strftime('%Y-%m', order_date) as month,
+                {date_format_sql} as month,
                 SUM(sale_price * quantity) as monthly_revenue,
                 COUNT(*) as order_count
             FROM orders
-            WHERE order_date >= date('now', '-6 months')
-            GROUP BY month
-            ORDER BY month DESC
+            WHERE order_date >= {date_interval_sql}
+            GROUP BY {date_format_sql}
+            ORDER BY {date_format_sql} DESC
             """
 
             revenue_results = self.db.execute_query(query)
@@ -408,26 +415,29 @@ Provide:
             cashflow_forecast = state.get('cashflow_forecast')
 
             # Calculate average order value
-            aov_query = """
+            date_interval_30 = self.db.get_date_interval_sql(30)
+            date_interval_60 = self.db.get_date_interval_sql(60)
+
+            aov_query = f"""
             SELECT
                 AVG(sale_price * quantity) as avg_order_value
             FROM orders
-            WHERE order_date >= date('now', '-30 days')
+            WHERE order_date >= {date_interval_30}
             """
 
             aov_results = self.db.execute_query(aov_query)
             avg_order_value = float(aov_results[0].get('avg_order_value', 0) or 0) if aov_results else 0.0
 
             # Calculate revenue growth (compare to prior period)
-            growth_query = """
+            growth_query = f"""
             SELECT
                 CASE
-                    WHEN order_date >= date('now', '-30 days') THEN 'current'
+                    WHEN order_date >= {date_interval_30} THEN 'current'
                     ELSE 'prior'
                 END as period,
                 SUM(sale_price * quantity) as revenue
             FROM orders
-            WHERE order_date >= date('now', '-60 days')
+            WHERE order_date >= {date_interval_60}
             GROUP BY period
             """
 

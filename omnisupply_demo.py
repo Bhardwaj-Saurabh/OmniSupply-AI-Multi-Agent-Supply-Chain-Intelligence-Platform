@@ -129,43 +129,75 @@ def main():
 
     if not skip_data:
         try:
-            # Load datasets
-            print("Loading datasets...")
-            loader = OmniSupplyDataLoader(data_dir=str(data_dir))
-            data = loader.load_all()
+            # Check if database already has data
+            if db.has_data():
+                print("⚠️  Database already contains data:")
+                existing_counts = db.get_table_counts()
+                for table, count in existing_counts.items():
+                    print(f"   • {table}: {count} records")
 
-            print(f"✅ Loaded:")
-            print(f"   • Orders: {len(data.get('orders', []))} records")
-            print(f"   • Shipments: {len(data.get('shipments', []))} records")
-            print(f"   • Inventory: {len(data.get('inventory', []))} records")
-            print(f"   • Transactions: {len(data.get('transactions', []))} records")
+                print("\nOptions:")
+                print("  1. Keep existing data and add new records (upsert)")
+                print("  2. Clear all data and reload fresh")
+                print("  3. Skip data loading")
 
-            # Validate data
-            print("\n🔍 Validating data quality...")
-            checker = DataQualityChecker()
-            validation_results = checker.check_all(data)
+                choice = input("\nEnter choice (1/2/3) [default: 1]: ").strip() or "1"
 
-            for dataset_name, result in validation_results.items():
-                print(f"   • {dataset_name}: {result.status} ({result.issues_found} issues)")
+                if choice == "2":
+                    print("\n🗑️  Clearing existing data...")
+                    db.clear_all_data()
+                    clear_existing = False  # Already cleared
+                elif choice == "3":
+                    print("\n⏭️  Skipping data loading")
+                    skip_data = True
+                else:
+                    print("\n📊 Using upsert mode (will skip duplicates)")
+                    clear_existing = False
+            else:
+                clear_existing = False
 
-            # Store in database
-            print("\n💾 Storing data in SQL database...")
-            db.load_all_data(data)
+            if not skip_data:
+                # Load datasets
+                print("\n📥 Loading datasets from files...")
+                loader = OmniSupplyDataLoader(data_dir=str(data_dir))
+                data = loader.load_all()
 
-            counts = db.get_table_counts()
-            print(f"✅ Database populated:")
-            for table, count in counts.items():
-                print(f"   • {table}: {count} records")
+                print(f"✅ Loaded from files:")
+                print(f"   • Orders: {len(data.get('orders', []))} records")
+                print(f"   • Shipments: {len(data.get('shipments', []))} records")
+                print(f"   • Inventory: {len(data.get('inventory', []))} records")
+                print(f"   • Transactions: {len(data.get('transactions', []))} records")
 
-            # Index for vector search (sample)
-            print("\n🔍 Indexing data for semantic search...")
-            if data.get('orders'):
-                sample_orders = [o.model_dump() for o in data['orders'][:200]]
-                vector_store.index_orders(sample_orders)
-                print(f"✅ Indexed {len(sample_orders)} orders for semantic search")
+                # Validate data
+                print("\n🔍 Validating data quality...")
+                checker = DataQualityChecker()
+                validation_results = checker.check_all(data)
+
+                for dataset_name, result in validation_results.items():
+                    status_icon = "✅" if result.status == "PASSED" else "❌"
+                    print(f"   {status_icon} {dataset_name}: {result.status} ({result.issues_found} issues)")
+
+                # Store in database
+                print("\n💾 Storing data in SQL database...")
+                counts = db.load_all_data(data, clear_existing=clear_existing)
+
+                final_counts = db.get_table_counts()
+                print(f"✅ Database now contains:")
+                for table, count in final_counts.items():
+                    new_records = counts.get(table, 0)
+                    print(f"   • {table}: {count} records ({new_records} new)")
+
+                # Index for vector search (sample)
+                print("\n🔍 Indexing data for semantic search...")
+                if data.get('orders'):
+                    sample_orders = [o.model_dump() for o in data['orders'][:200]]
+                    vector_store.index_orders(sample_orders)
+                    print(f"✅ Indexed {len(sample_orders)} orders for semantic search")
 
         except Exception as e:
+            import traceback
             print(f"⚠️  Warning: Could not load data: {e}")
+            print(traceback.format_exc())
             print("Continuing with empty database...")
 
     # ========================================

@@ -175,15 +175,18 @@ class RiskAgent(BaseAgent):
 
         try:
             # Calculate late shipment rate
-            query = """
+            date_diff_sql = self.db.get_date_diff_sql('actual_delivery', 'expected_delivery')
+            date_interval_sql = self.db.get_date_interval_sql(30)
+
+            query = f"""
             SELECT
                 COUNT(*) as total_shipments,
                 SUM(CASE WHEN actual_delivery > expected_delivery THEN 1 ELSE 0 END) as late_shipments,
-                AVG(JULIANDAY(actual_delivery) - JULIANDAY(expected_delivery)) as avg_delay_days,
+                AVG({date_diff_sql}) as avg_delay_days,
                 carrier,
                 COUNT(DISTINCT CASE WHEN actual_delivery > expected_delivery THEN carrier END) as carriers_with_issues
             FROM shipments
-            WHERE shipment_date >= date('now', '-30 days')
+            WHERE shipment_date >= {date_interval_sql}
             GROUP BY carrier
             ORDER BY late_shipments DESC
             LIMIT 10
@@ -268,7 +271,9 @@ class RiskAgent(BaseAgent):
 
         try:
             # Calculate return and defect rates
-            query = """
+            date_interval_sql = self.db.get_date_interval_sql(30)
+
+            query = f"""
             SELECT
                 COUNT(*) as total_orders,
                 SUM(is_returned) as returned_orders,
@@ -276,9 +281,9 @@ class RiskAgent(BaseAgent):
                 category,
                 product_id
             FROM orders
-            WHERE order_date >= date('now', '-30 days')
+            WHERE order_date >= {date_interval_sql}
             GROUP BY category, product_id
-            HAVING return_rate > 0
+            HAVING CAST(SUM(is_returned) AS FLOAT) / COUNT(*) > 0
             ORDER BY return_rate DESC
             LIMIT 10
             """
@@ -316,7 +321,9 @@ class RiskAgent(BaseAgent):
 
         try:
             # Calculate margin and discount risks
-            query = """
+            date_interval_sql = self.db.get_date_interval_sql(30)
+
+            query = f"""
             SELECT
                 COUNT(*) as total_orders,
                 AVG(profit / NULLIF(sale_price, 0)) as avg_margin,
@@ -325,7 +332,7 @@ class RiskAgent(BaseAgent):
                 SUM(CASE WHEN discount_percent > 30 THEN 1 ELSE 0 END) as high_discount_orders,
                 category
             FROM orders
-            WHERE order_date >= date('now', '-30 days')
+            WHERE order_date >= {date_interval_sql}
             GROUP BY category
             ORDER BY avg_margin ASC
             LIMIT 10

@@ -5,7 +5,7 @@ These models map to database tables for persistent storage.
 
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, Text, Index, ForeignKey
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, Text, Index, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -36,7 +36,7 @@ class OrderDB(Base):
     discount = Column(Numeric(12, 2))
     sale_price = Column(Numeric(12, 2))
     profit = Column(Numeric(12, 2))
-    is_returned = Column(Integer, default=0)
+    is_returned = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
