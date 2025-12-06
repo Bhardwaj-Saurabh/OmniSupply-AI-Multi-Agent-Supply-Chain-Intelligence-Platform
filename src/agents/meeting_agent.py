@@ -236,9 +236,7 @@ class MeetingAgent(BaseAgent):
         data_sources = {}
 
         try:
-            # Get basic business metrics
-            date_interval_sql = self.db.get_date_interval_sql(30)
-
+            # Get basic business metrics (PostgreSQL syntax)
             metrics_query = f"""
             SELECT
                 COUNT(*) as total_orders,
@@ -246,7 +244,7 @@ class MeetingAgent(BaseAgent):
                 SUM(profit * quantity) as total_profit,
                 AVG(sale_price * quantity) as avg_order_value
             FROM orders
-            WHERE order_date >= {date_interval_sql}
+            WHERE order_date >= CURRENT_DATE - INTERVAL '30 days'
             """
             metrics = self.db.execute_query(metrics_query)
 

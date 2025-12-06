@@ -179,10 +179,10 @@ class DataAnalystAgent(BaseAgent):
 User Query: {state['user_query']}
 
 Available tables and columns:
-- orders: order_id, order_date, category, product_id, sale_price, profit, quantity, discount_percent, is_returned, segment, region, state
-- shipments: shipment_id, carrier, shipment_date, expected_delivery, actual_delivery, status, origin_location, destination_location
-- inventory: sku, product_id, product_name, stock_quantity, reorder_level, warehouse_location
-- financial_transactions: transaction_id, transaction_date, transaction_type, category, amount, payment_status
+- orders: order_id, order_date, category, product_id, sale_price, profit, quantity, discount_percent, is_returned, segment, region, state, shipping_mode
+- shipments: shipment_id, carrier, shipment_date, expected_delivery, actual_delivery, status, origin_location, destination_location, freight_cost
+- inventory: sku, product_id, product_name, stock_quantity, reorder_level, warehouse_location, unit_cost, supplier_id
+- financial_transactions: transaction_id, transaction_date, transaction_type, category, subcategory, amount, currency, cost_center, business_unit, payment_method, vendor_id, notes
 
 Determine:
 1. Query type (aggregation, trend, comparison, anomaly, detail)
@@ -231,12 +231,12 @@ Classification:
 - Time Period: {classification.entities.time_period or 'Not specified'}
 
 Available tables:
-- orders (order_id, order_date, category, product_id, sale_price, profit, quantity, discount_percent, is_returned, segment, region, state)
-- shipments (shipment_id, carrier, shipment_date, expected_delivery, actual_delivery, status)
-- inventory (sku, product_id, product_name, stock_quantity, reorder_level, warehouse_location)
-- financial_transactions (transaction_id, transaction_date, transaction_type, category, amount, payment_status)
+- orders (order_id, order_date, category, product_id, sale_price, profit, quantity, discount_percent, is_returned, segment, region, state, shipping_mode)
+- shipments (shipment_id, carrier, shipment_date, expected_delivery, actual_delivery, status, origin_location, destination_location, freight_cost)
+- inventory (sku, product_id, product_name, stock_quantity, reorder_level, warehouse_location, unit_cost, supplier_id)
+- financial_transactions (transaction_id, transaction_date, transaction_type, category, subcategory, amount, currency, cost_center, business_unit, payment_method, vendor_id, notes)
 
-Generate valid DuckDB/PostgreSQL SQL. Use proper date functions. Limit results to 100 rows.{error_context}
+Generate valid PostgreSQL SQL. Use proper date functions (e.g., DATE_TRUNC, INTERVAL). Limit results to 100 rows.{error_context}
 """
 
         try:

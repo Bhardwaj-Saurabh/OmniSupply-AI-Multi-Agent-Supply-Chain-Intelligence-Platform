@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional, TypedDict, Literal
 from datetime import datetime
 import asyncio
 import logging
+import os
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
@@ -17,6 +18,9 @@ from ..agents.base import BaseAgent, AgentRegistry
 from ..data.models import AgentResult
 
 logger = logging.getLogger(__name__)
+
+# Get Opik project name from environment
+OPIK_PROJECT_NAME = os.getenv("OPIK_PROJECT_NAME", "omnisupply")
 
 
 # Pydantic models for structured outputs
@@ -94,7 +98,7 @@ class SupervisorAgent:
         self.llm = llm or ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.2,
-            callbacks=[OpikTracer()]
+            callbacks=[OpikTracer(project_name=OPIK_PROJECT_NAME)]
         )
 
         # LLMs with structured outputs
@@ -487,7 +491,7 @@ Make it executive-friendly: clear, concise, actionable.
 
         return report
 
-    @track(project_name="omnisupply-supervisor")
+    @track(project_name=OPIK_PROJECT_NAME)
     def execute(
         self,
         query: str,
@@ -517,7 +521,7 @@ Make it executive-friendly: clear, concise, actionable.
             "error": None
         }
 
-        result = self.graph.invoke(initial_state, config={"callbacks": [OpikTracer()]})
+        result = self.graph.invoke(initial_state, config={"callbacks": [OpikTracer(project_name=OPIK_PROJECT_NAME)]})
 
         logger.info("✅ Supervisor execution complete")
 

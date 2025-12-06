@@ -7,7 +7,6 @@ requires-python = ">=3.11"
 dependencies = [
     "langchain>=1.1.0",
     "langgraph>=1.0.4",
-    "openai>=1.68.2,<2.0.0",
     "openpyxl>=3.1.5",
     "pandas>=2.3.3",
     "pydantic[email]>=2.0.0",
@@ -39,4 +38,8 @@ dependencies = [
     "ruff>=0.14.7",
     "duckdb-engine>=0.17.0",
     "email-validator>=2.3.0",
+    "ipykernel>=6.29.0",
+    "ipython>=8.12.0",
+    "jupyter-client>=8.6.0",
+    "openai>=1.0.0,<2.0.0",
 ]

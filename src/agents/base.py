@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, TypedDict
 from datetime import datetime
 import logging
+import os
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from opik import track
@@ -17,6 +18,9 @@ from ..storage.sql.database import DatabaseClient
 from ..storage.vector.chromadb_client import OmniSupplyVectorStore
 
 logger = logging.getLogger(__name__)
+
+# Get Opik project name from environment
+OPIK_PROJECT_NAME = os.getenv("OPIK_PROJECT_NAME", "omnisupply")
 
 
 class BaseAgentState(TypedDict):
@@ -60,7 +64,7 @@ class BaseAgent(ABC):
         self.llm = llm or ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.2,
-            callbacks=[OpikTracer()]
+            callbacks=[OpikTracer(project_name=OPIK_PROJECT_NAME)]
         )
         self.db = db_client
         self.vector_store = vector_store
@@ -104,7 +108,7 @@ class BaseAgent(ABC):
         """
         pass
 
-    @track(project_name="omnisupply")
+    @track(project_name=OPIK_PROJECT_NAME)
     def execute(
         self,
         query: str,
@@ -133,7 +137,7 @@ class BaseAgent(ABC):
             # Execute graph
             final_state = self.graph.invoke(
                 initial_state,
-                config={"callbacks": [OpikTracer()]}
+                config={"callbacks": [OpikTracer(project_name=OPIK_PROJECT_NAME)]}
             )
 
             # Format result

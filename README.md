@@ -4,19 +4,22 @@
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![LangGraph](https://img.shields.io/badge/LangGraph-latest-green.svg)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 ---
 
 ## 🎯 What is OmniSupply?
 
-OmniSupply is a production-ready **multi-agent AI platform** that ingests real supply chain, sales, and financial data to provide:
+OmniSupply is a **production-ready multi-agent AI platform** that ingests real supply chain, sales, and financial data to provide:
 
 - ✅ **Automated Insights**: AI-generated KPI summaries, trend analysis, anomaly detection
 - ✅ **Risk Predictions**: Proactive alerts for delivery delays, inventory shortages, quality issues
 - ✅ **Process Optimization**: Data-driven recommendations for cost reduction and efficiency
 - ✅ **Executive Reporting**: Weekly/monthly CxO-level business intelligence reports
 - ✅ **Workflow Automation**: Stakeholder alerts, task creation, meeting agendas
+
+**Current Status**: ✅ **Fully Operational** with 416,962 records loaded across 4 data tables!
 
 ---
 
@@ -34,7 +37,7 @@ User Query → Supervisor Agent → [Data Analyst, Risk, Finance, Meeting, Email
 1. **Data Pipeline**: Ingestion, validation, storage (SQL + Vector DB)
 2. **Specialized Agents**: Domain experts (data, risk, finance, reporting, workflow)
 3. **Supervisor Agent**: Orchestrates agents, aggregates results, generates reports
-4. **Storage Layer**: DuckDB/PostgreSQL + ChromaDB for semantic search
+4. **Storage Layer**: PostgreSQL + ChromaDB for semantic search
 
 [📖 Full Architecture Documentation](OMNISUPPLY_ARCHITECTURE.md)
 
@@ -44,91 +47,163 @@ User Query → Supervisor Agent → [Data Analyst, Risk, Finance, Meeting, Email
 
 ### 1. Installation
 
+This project uses **[uv](https://github.com/astral-sh/uv)** for fast, reliable Python package management.
+
 ```bash
 # Clone repository
 git clone https://github.com/yourusername/OmniSupply-AI-Multi-Agent-Supply-Chain-Intelligence-Platform.git
 cd OmniSupply-AI-Multi-Agent-Supply-Chain-Intelligence-Platform
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install dependencies
+# Create virtual environment and install dependencies
+uv sync
+
+# This will:
+# - Create .venv/ if it doesn't exist
+# - Install all dependencies from pyproject.toml
+# - Lock versions in uv.lock
+```
+
+**Alternative (traditional pip)**:
+```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Setup Environment
+### 2. Setup PostgreSQL Database
+
+**Option A: Local PostgreSQL (Recommended)**
+
+Run the setup script to create a local PostgreSQL instance via Docker:
+
+```bash
+bash setup_local_postgres.sh
+```
+
+This will:
+- Create a PostgreSQL 15 Docker container
+- Configure database: `omnisupply`
+- Setup user credentials
+- Expose on port 5432
+
+**Option B: Remote PostgreSQL**
+
+If you have an existing PostgreSQL server, skip the script and configure your connection in `.env`
+
+### 3. Setup Environment
 
 Create a `.env` file:
 
 ```bash
+# OpenAI Configuration
 OPENAI_API_KEY=sk-your-key-here
 OPENAI_MODEL=gpt-4o-mini
-DATABASE_URL=duckdb:///data/omnisupply.db
+
+# PostgreSQL Configuration (Local Docker)
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=omnisupply
+POSTGRES_PASSWORD=omnisupply123
+POSTGRES_DB=omnisupply
+
+# Observability
 OPIK_PROJECT_NAME=omnisupply
 ```
 
-### 3. Prepare Data
+### 4. Prepare Data
 
 Place your CSV files in the `data/` directory:
 
 ```
 data/
-├── retail_orders.csv
-├── supply_chain.csv
-├── inventory.csv
-└── financial_data.csv
+├── retail_orders.csv         # DataCo SMART SUPPLY CHAIN dataset
+├── supply_chain.csv          # (optional)
+├── inventory.csv             # (optional)
+└── financial_data.csv        # (optional)
 ```
 
-### 4. Run Complete Multi-Agent Demo
+### 5. Load Data into PostgreSQL
 
 ```bash
+# Load full dataset (180K orders + 351K transactions)
+python load_full_data.py
+
+# OR load small dataset for quick testing (10K orders)
+python quick_demo_small_data.py
+```
+
+### 6. Run Complete Multi-Agent Demo
+
+```bash
+# Default: Auto-detect and use existing data (no prompts)
 python omnisupply_demo.py
+
+# Force reload: Clear and reload all data from CSV
+python omnisupply_demo.py --reload
+
+# Skip data loading: Use existing database only
+python omnisupply_demo.py --skip-data
 ```
 
 This will:
-- Load and validate all datasets (~400K+ records)
-- Store data in SQL database (DuckDB) and vector store (ChromaDB)
-- Initialize all 5 specialized agents
-- Test individual agent capabilities
-- Demonstrate Supervisor multi-agent orchestration
-- Generate executive reports with cross-agent insights
+- ✅ Automatically detect and use existing data (no manual prompts)
+- ✅ Validate database connection (416,962 records loaded)
+- ✅ Initialize all 5 specialized agents
+- ✅ Test individual agent capabilities
+- ✅ Demonstrate Supervisor multi-agent orchestration
+- ✅ Generate executive reports with cross-agent insights
 
-**Alternative**: Run the basic example:
+**Example Output**:
+```
+📊 Connecting to PostgreSQL: localhost:5432/omnisupply
+✅ Connected to PostgreSQL successfully!
+✅ Database already contains 65,952 records:
+   • orders: 65,752 records
+   • shipments: 100 records
 
-```bash
-python example_usage.py
+📊 Using existing data (no reload needed)
+
+🤖 STEP 2: Initializing Agents
+✅ data_analyst: SQL query generation, trend analysis
+✅ risk_agent: Risk assessment, delivery/inventory alerts
+✅ finance_agent: P&L reports, cashflow forecasting
+✅ meeting_agent: Executive summaries, weekly reports
+✅ email_agent: Stakeholder alerts, task automation
 ```
 
 ---
 
 ## 📊 Datasets
 
-The platform supports these data types:
+The platform currently has **416,962 records loaded** across 4 tables:
 
 ### 1. Orders (`retail_orders.csv`)
-- Order ID, date, customer segment
+- Order ID, date, customer segment, region
 - Product category, sub-category, pricing
-- Discounts, profit, returns
-- **~222K records**
+- Discounts, profit, returns, shipping details
+- **65,752 records** (deduplicated from 180K raw records)
+- Source: DataCo SMART SUPPLY CHAIN dataset
 
-### 2. Shipments (`supply_chain.csv`)
+### 2. Financial Transactions (`financial_data.csv`)
+- Transaction types (revenue, COGS, expenses, discounts)
+- Categories, cost centers, business units
+- P&L components, vendor information
+- **351,010 records**
+
+### 3. Shipments (`supply_chain.csv`)
 - Shipment tracking, carrier, routes
 - Expected vs actual delivery dates
-- Freight costs, delays, reasons
-- **~10K records**
+- Freight costs, delays, late delivery tracking
+- **100 records** (sample data)
 
-### 3. Inventory (`inventory.csv`)
-- SKU, product name, warehouse
-- Stock levels, reorder points
-- Lead times, supplier info
-- **~5K SKUs**
-
-### 4. Financial (`financial_data.csv`)
-- Transactions (revenue, COGS, expenses)
-- Categories, cost centers, vendors
-- P&L components
-- **~190K transactions**
+### 4. Inventory (`inventory.csv`)
+- SKU, product name, warehouse location
+- Stock levels, reorder points, reorder quantities
+- Lead times, supplier information, unit costs
+- **100 records** (sample data)
 
 ---
 
@@ -266,18 +341,22 @@ OmniSupply/
 
 ## 🔮 Roadmap
 
-### Phase 1: Core Platform ✅
-- [x] Data ingestion pipeline
-- [x] SQL + Vector storage
+### Phase 1: Core Platform ✅ **COMPLETED**
+- [x] Data ingestion pipeline with validation
+- [x] PostgreSQL + ChromaDB storage
 - [x] BaseAgent abstraction
-- [x] Supervisor orchestration
+- [x] Supervisor orchestration with LangGraph
 - [x] Agent notebooks (5 agents)
 
-### Phase 2: Production Agents (Next)
-- [ ] Implement production agent classes
-- [ ] SQL query generation (Data Analyst)
-- [ ] Risk scoring models
-- [ ] Prophet forecasting (Finance)
+### Phase 2: Production Agents ✅ **COMPLETED**
+- [x] Implement production agent classes (5 agents)
+- [x] SQL query generation (Data Analyst)
+- [x] Risk scoring models (Risk Agent)
+- [x] P&L reporting (Finance Agent)
+- [x] Executive report generation (Meeting Agent)
+- [x] Alert workflow automation (Email Agent)
+- [x] Local PostgreSQL setup via Docker
+- [x] Full dataset loaded (416K+ records)
 
 ### Phase 3: API Layer
 - [ ] FastAPI endpoints
@@ -344,10 +423,11 @@ MIT License - see [LICENSE](LICENSE) file
 
 Built with:
 - [LangGraph](https://github.com/langchain-ai/langgraph) - Agent workflows
-- [OpenAI](https://openai.com) - LLMs
+- [OpenAI](https://openai.com) - LLMs (GPT-4o-mini)
 - [ChromaDB](https://www.trychroma.com) - Vector search
-- [DuckDB](https://duckdb.org) - Analytics database
+- [PostgreSQL](https://www.postgresql.org) - Production database
 - [Opik](https://www.comet.com/site/products/opik/) - LLM observability
+- [Docker](https://www.docker.com) - Local PostgreSQL containerization
 
 ---
 

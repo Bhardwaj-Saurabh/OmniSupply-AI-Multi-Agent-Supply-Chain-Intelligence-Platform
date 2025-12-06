@@ -1,5 +1,5 @@
 # Core AI/ML
-openai<2.0.0,>=1.68.2
+openai<2.0.0,>=1.0.0
 langgraph
 langchain
 langchain-openai
@@ -17,11 +17,8 @@ prophet
 # Storage
 sqlalchemy>=2.0.0
 alembic
-chromadb
-duckdb
-duckdb-engine  # DuckDB SQLAlchemy driver
+chromadb  # Vector database for semantic search
 psycopg2-binary  # PostgreSQL driver
-psycopg2-binary
 
 
 # API & Web

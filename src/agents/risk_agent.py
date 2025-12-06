@@ -174,19 +174,16 @@ class RiskAgent(BaseAgent):
         logger.info("[Risk Agent] Gathering delivery data")
 
         try:
-            # Calculate late shipment rate
-            date_diff_sql = self.db.get_date_diff_sql('actual_delivery', 'expected_delivery')
-            date_interval_sql = self.db.get_date_interval_sql(30)
-
+            # Calculate late shipment rate (PostgreSQL syntax)
             query = f"""
             SELECT
                 COUNT(*) as total_shipments,
                 SUM(CASE WHEN actual_delivery > expected_delivery THEN 1 ELSE 0 END) as late_shipments,
-                AVG({date_diff_sql}) as avg_delay_days,
+                AVG(EXTRACT(EPOCH FROM (actual_delivery - expected_delivery))/86400) as avg_delay_days,
                 carrier,
                 COUNT(DISTINCT CASE WHEN actual_delivery > expected_delivery THEN carrier END) as carriers_with_issues
             FROM shipments
-            WHERE shipment_date >= {date_interval_sql}
+            WHERE shipment_date >= CURRENT_DATE - INTERVAL '30 days'
             GROUP BY carrier
             ORDER BY late_shipments DESC
             LIMIT 10
@@ -270,20 +267,18 @@ class RiskAgent(BaseAgent):
         logger.info("[Risk Agent] Gathering quality data")
 
         try:
-            # Calculate return and defect rates
-            date_interval_sql = self.db.get_date_interval_sql(30)
-
+            # Calculate return and defect rates (PostgreSQL syntax with boolean support)
             query = f"""
             SELECT
                 COUNT(*) as total_orders,
-                SUM(is_returned) as returned_orders,
-                CAST(SUM(is_returned) AS FLOAT) / COUNT(*) as return_rate,
+                SUM(CASE WHEN is_returned THEN 1 ELSE 0 END) as returned_orders,
+                CAST(SUM(CASE WHEN is_returned THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) as return_rate,
                 category,
                 product_id
             FROM orders
-            WHERE order_date >= {date_interval_sql}
+            WHERE order_date >= CURRENT_DATE - INTERVAL '30 days'
             GROUP BY category, product_id
-            HAVING CAST(SUM(is_returned) AS FLOAT) / COUNT(*) > 0
+            HAVING CAST(SUM(CASE WHEN is_returned THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) > 0
             ORDER BY return_rate DESC
             LIMIT 10
             """
@@ -320,9 +315,7 @@ class RiskAgent(BaseAgent):
         logger.info("[Risk Agent] Gathering financial data")
 
         try:
-            # Calculate margin and discount risks
-            date_interval_sql = self.db.get_date_interval_sql(30)
-
+            # Calculate margin and discount risks (PostgreSQL syntax)
             query = f"""
             SELECT
                 COUNT(*) as total_orders,
@@ -332,7 +325,7 @@ class RiskAgent(BaseAgent):
                 SUM(CASE WHEN discount_percent > 30 THEN 1 ELSE 0 END) as high_discount_orders,
                 category
             FROM orders
-            WHERE order_date >= {date_interval_sql}
+            WHERE order_date >= CURRENT_DATE - INTERVAL '30 days'
             GROUP BY category
             ORDER BY avg_margin ASC
             LIMIT 10

@@ -173,9 +173,7 @@ class FinanceAgent(BaseAgent):
         logger.info("[Finance Agent] Generating P&L report")
 
         try:
-            # Calculate revenue from orders (last 30 days)
-            date_interval_sql = self.db.get_date_interval_sql(30)
-
+            # Calculate revenue from orders (last 30 days, PostgreSQL syntax)
             revenue_query = f"""
             SELECT
                 SUM(sale_price * quantity) as total_revenue,
@@ -183,7 +181,7 @@ class FinanceAgent(BaseAgent):
                 SUM(profit * quantity) as gross_profit,
                 COUNT(*) as total_orders
             FROM orders
-            WHERE order_date >= {date_interval_sql}
+            WHERE order_date >= CURRENT_DATE - INTERVAL '30 days'
             """
 
             revenue_results = self.db.execute_query(revenue_query)
@@ -194,7 +192,7 @@ class FinanceAgent(BaseAgent):
                 SUM(amount) as total_expenses
             FROM financial_transactions
             WHERE transaction_type = 'expense'
-            AND transaction_date >= {date_interval_sql}
+            AND transaction_date >= CURRENT_DATE - INTERVAL '30 days'
             """
 
             expense_results = self.db.execute_query(expense_query)
@@ -242,9 +240,7 @@ class FinanceAgent(BaseAgent):
         logger.info("[Finance Agent] Analyzing expenses")
 
         try:
-            # Get expense breakdown by category
-            date_interval_sql = self.db.get_date_interval_sql(30)
-
+            # Get expense breakdown by category (PostgreSQL syntax)
             query = f"""
             SELECT
                 category,
@@ -254,7 +250,7 @@ class FinanceAgent(BaseAgent):
                 MAX(amount) as max_amount
             FROM financial_transactions
             WHERE transaction_type = 'expense'
-            AND transaction_date >= {date_interval_sql}
+            AND transaction_date >= CURRENT_DATE - INTERVAL '30 days'
             GROUP BY category
             ORDER BY total_amount DESC
             """
@@ -316,19 +312,16 @@ Identify:
         logger.info("[Finance Agent] Forecasting cashflow")
 
         try:
-            # Get historical revenue and expense trends
-            date_interval_sql = self.db.get_date_interval_sql(180)  # 6 months = ~180 days
-            date_format_sql = self.db.get_date_format_sql('order_date', '%Y-%m')
-
+            # Get historical revenue and expense trends (PostgreSQL syntax)
             query = f"""
             SELECT
-                {date_format_sql} as month,
+                TO_CHAR(order_date, 'YYYY-MM') as month,
                 SUM(sale_price * quantity) as monthly_revenue,
                 COUNT(*) as order_count
             FROM orders
-            WHERE order_date >= {date_interval_sql}
-            GROUP BY {date_format_sql}
-            ORDER BY {date_format_sql} DESC
+            WHERE order_date >= CURRENT_DATE - INTERVAL '180 days'
+            GROUP BY TO_CHAR(order_date, 'YYYY-MM')
+            ORDER BY TO_CHAR(order_date, 'YYYY-MM') DESC
             """
 
             revenue_results = self.db.execute_query(query)
@@ -414,15 +407,12 @@ Provide:
             pl_report = state.get('pl_report')
             cashflow_forecast = state.get('cashflow_forecast')
 
-            # Calculate average order value
-            date_interval_30 = self.db.get_date_interval_sql(30)
-            date_interval_60 = self.db.get_date_interval_sql(60)
-
+            # Calculate average order value (PostgreSQL syntax)
             aov_query = f"""
             SELECT
                 AVG(sale_price * quantity) as avg_order_value
             FROM orders
-            WHERE order_date >= {date_interval_30}
+            WHERE order_date >= CURRENT_DATE - INTERVAL '30 days'
             """
 
             aov_results = self.db.execute_query(aov_query)
@@ -432,12 +422,12 @@ Provide:
             growth_query = f"""
             SELECT
                 CASE
-                    WHEN order_date >= {date_interval_30} THEN 'current'
+                    WHEN order_date >= CURRENT_DATE - INTERVAL '30 days' THEN 'current'
                     ELSE 'prior'
                 END as period,
                 SUM(sale_price * quantity) as revenue
             FROM orders
-            WHERE order_date >= {date_interval_60}
+            WHERE order_date >= CURRENT_DATE - INTERVAL '60 days'
             GROUP BY period
             """
 

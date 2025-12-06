@@ -22,65 +22,47 @@ class DatabaseClient:
 
     def __init__(self, database_url: Optional[str] = None, echo: bool = False):
         """
-        Initialize database connection.
+        Initialize PostgreSQL database connection.
 
         Args:
-            database_url: Database connection string
-                - DuckDB: "duckdb:///omnisupply.db" (local file)
-                - PostgreSQL: "postgresql://user:pass@host:5432/dbname"
-                - SQLite: "sqlite:///omnisupply.db"
+            database_url: PostgreSQL connection string
+                - Format: "postgresql://user:pass@host:5432/dbname"
             echo: Whether to log SQL statements
         """
         if database_url is None:
-            # Default to DuckDB for analytics workloads
-            database_url = os.getenv("DATABASE_URL", "duckdb:///data/omnisupply.db")
+            # PostgreSQL-only - must be provided
+            database_url = os.getenv("DATABASE_URL")
+            if not database_url:
+                raise ValueError("DATABASE_URL must be provided (PostgreSQL only)")
 
         logger.info(f"Initializing database: {database_url.split('://')[0]}")
 
-        # Create engine
-        if database_url.startswith("duckdb"):
-            # DuckDB-specific settings
-            self.engine = create_engine(
-                database_url,
-                echo=echo,
-                connect_args={"read_only": False}
-            )
-        elif database_url.startswith("sqlite"):
-            # SQLite for testing
-            self.engine = create_engine(
-                database_url,
-                echo=echo,
-                connect_args={"check_same_thread": False},
-                poolclass=StaticPool
-            )
-        else:
-            # PostgreSQL or other
-            connect_args = {}
-            self.schema_name = None
+        # PostgreSQL-only engine creation
+        if not database_url.startswith("postgresql"):
+            raise ValueError(f"Only PostgreSQL is supported. Got: {database_url}")
 
-            # For PostgreSQL, extract username and setup custom schema
-            if database_url.startswith("postgresql"):
-                # Extract username from connection string for schema authorization
-                import re
-                match = re.search(r'postgresql://([^:]+):', database_url)
-                if match:
-                    self.pg_username = match.group(1)
-                    self.schema_name = "omnisupply"  # Our custom schema
-                    # Set search_path to use our schema
-                    connect_args["options"] = f"-c search_path={self.schema_name},public"
-                    logger.info(f"PostgreSQL: Will use schema '{self.schema_name}' with user '{self.pg_username}'")
-                else:
-                    self.pg_username = None
-                    logger.warning("Could not extract username from PostgreSQL URL")
+        # Extract username from connection string for schema authorization
+        import re
+        match = re.search(r'postgresql://([^:]+):', database_url)
+        if not match:
+            raise ValueError("Could not extract username from PostgreSQL URL")
 
-            self.engine = create_engine(
-                database_url,
-                echo=echo,
-                pool_pre_ping=True,
-                pool_size=10,
-                max_overflow=20,
-                connect_args=connect_args
-            )
+        self.pg_username = match.group(1)
+        self.schema_name = "omnisupply"  # Our custom schema
+
+        # Set search_path to use our schema
+        connect_args = {"options": f"-c search_path={self.schema_name},public"}
+        logger.info(f"PostgreSQL: Will use schema '{self.schema_name}' with user '{self.pg_username}'")
+
+        # Create PostgreSQL engine
+        self.engine = create_engine(
+            database_url,
+            echo=echo,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            connect_args=connect_args
+        )
 
         # Create session factory
         self.SessionLocal = sessionmaker(
@@ -90,8 +72,7 @@ class DatabaseClient:
         )
 
         # Initialize database schema for PostgreSQL
-        if database_url.startswith("postgresql") and self.schema_name:
-            self.init_postgres_schema()
+        self.init_postgres_schema()
 
         # Create tables
         self.create_tables()
@@ -426,51 +407,6 @@ class DatabaseClient:
 
         logger.info(f"✅ Upserted {inserted} new orders (skipped {len(orders) - inserted} duplicates)")
         return inserted
-
-    def get_db_type(self) -> str:
-        """Get database type (sqlite, postgresql, duckdb)"""
-        return self.engine.dialect.name
-
-    def get_date_interval_sql(self, days: int) -> str:
-        """Get SQL for date interval calculation based on database type"""
-        db_type = self.get_db_type()
-
-        if db_type == "postgresql":
-            return f"CURRENT_DATE - INTERVAL '{days} days'"
-        elif db_type == "sqlite":
-            return f"date('now', '-{days} days')"
-        elif db_type == "duckdb":
-            return f"CURRENT_DATE - INTERVAL '{days}' DAY"
-        else:
-            return f"date('now', '-{days} days')"  # fallback to SQLite
-
-    def get_date_diff_sql(self, date1: str, date2: str) -> str:
-        """Get SQL for date difference calculation based on database type"""
-        db_type = self.get_db_type()
-
-        if db_type == "postgresql":
-            return f"EXTRACT(EPOCH FROM ({date1} - {date2}))/86400"
-        elif db_type == "sqlite":
-            return f"JULIANDAY({date1}) - JULIANDAY({date2})"
-        elif db_type == "duckdb":
-            return f"DATE_DIFF('day', {date2}, {date1})"
-        else:
-            return f"JULIANDAY({date1}) - JULIANDAY({date2})"  # fallback to SQLite
-
-    def get_date_format_sql(self, date_column: str, format_str: str = '%Y-%m') -> str:
-        """Get SQL for date formatting based on database type"""
-        db_type = self.get_db_type()
-
-        if db_type == "postgresql":
-            # Convert Python format to PostgreSQL format
-            pg_format = format_str.replace('%Y', 'YYYY').replace('%m', 'MM').replace('%d', 'DD')
-            return f"TO_CHAR({date_column}, '{pg_format}')"
-        elif db_type == "sqlite":
-            return f"strftime('{format_str}', {date_column})"
-        elif db_type == "duckdb":
-            return f"strftime({date_column}, '{format_str}')"
-        else:
-            return f"strftime('{format_str}', {date_column})"  # fallback to SQLite
 
     def close(self):
         """Close database connection"""

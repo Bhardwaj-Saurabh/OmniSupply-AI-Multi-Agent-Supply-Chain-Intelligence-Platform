@@ -1,10 +1,16 @@
 """
 OmniSupply Multi-Agent System Demo
 Complete demonstration of the OmniSupply platform with all agents
+
+Usage:
+    python omnisupply_demo.py                    # Auto-detect and use existing data
+    python omnisupply_demo.py --reload           # Clear and reload all data
+    python omnisupply_demo.py --skip-data        # Skip data loading entirely
 """
 
 import os
 import sys
+import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -69,6 +75,23 @@ def print_result(agent_name: str, result):
 
 def main():
     """Main demo function"""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="OmniSupply Multi-Agent Platform Demo",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Clear existing data and reload fresh from CSV files"
+    )
+    parser.add_argument(
+        "--skip-data",
+        action="store_true",
+        help="Skip data loading entirely (use existing database)"
+    )
+    args = parser.parse_args()
+
     print_section("🚀 OmniSupply Multi-Agent Platform Demo")
 
     print("This demo will:")
@@ -83,7 +106,12 @@ def main():
     print_section("📥 STEP 1: Loading Data")
 
     data_dir = Path("data")
-    if not data_dir.exists():
+
+    # Handle command-line flags
+    if args.skip_data:
+        skip_data = True
+        print("⏭️  Skipping data loading (--skip-data flag)")
+    elif not data_dir.exists():
         print(f"⚠️  Warning: Data directory '{data_dir}' not found.")
         print("Creating sample data directory structure...")
         data_dir.mkdir(exist_ok=True)
@@ -97,7 +125,7 @@ def main():
     else:
         skip_data = False
 
-    # Try PostgreSQL from environment, fallback to SQLite
+    # PostgreSQL-only connection (no fallback)
     import os
     os.makedirs("data", exist_ok=True)
 
@@ -108,22 +136,17 @@ def main():
     postgres_host = os.getenv("POSTGRES_HOST")
     postgres_port = os.getenv("POSTGRES_PORT", "5432")
 
-    db = None
-    if postgres_host and postgres_user and postgres_password and postgres_db:
-        database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}"
-        print(f"📊 Attempting to connect to PostgreSQL: {postgres_host}:{postgres_port}/{postgres_db}")
-        try:
-            db = DatabaseClient(database_url=database_url)
-            print(f"✅ Connected to PostgreSQL successfully!")
-        except Exception as e:
-            print(f"⚠️  PostgreSQL connection failed: {e}")
-            print(f"📊 Falling back to SQLite...")
-            db = None
+    # Validate PostgreSQL configuration
+    if not all([postgres_host, postgres_user, postgres_password, postgres_db]):
+        print("❌ ERROR: PostgreSQL configuration incomplete in .env file")
+        print("Required variables: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST")
+        sys.exit(1)
 
-    if db is None:
-        # Fallback to SQLite
-        print(f"📊 Using SQLite database: data/omnisupply.db")
-        db = DatabaseClient(database_url="sqlite:///data/omnisupply.db")
+    database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}"
+    print(f"📊 Connecting to PostgreSQL: {postgres_host}:{postgres_port}/{postgres_db}")
+
+    db = DatabaseClient(database_url=database_url)
+    print(f"✅ Connected to PostgreSQL successfully!")
 
     vector_store = OmniSupplyVectorStore()
 
@@ -131,28 +154,23 @@ def main():
         try:
             # Check if database already has data
             if db.has_data():
-                print("⚠️  Database already contains data:")
                 existing_counts = db.get_table_counts()
+                total_records = sum(existing_counts.values())
+                print(f"✅ Database already contains {total_records:,} records:")
                 for table, count in existing_counts.items():
-                    print(f"   • {table}: {count} records")
+                    print(f"   • {table}: {count:,} records")
 
-                print("\nOptions:")
-                print("  1. Keep existing data and add new records (upsert)")
-                print("  2. Clear all data and reload fresh")
-                print("  3. Skip data loading")
-
-                choice = input("\nEnter choice (1/2/3) [default: 1]: ").strip() or "1"
-
-                if choice == "2":
-                    print("\n🗑️  Clearing existing data...")
+                # Handle based on --reload flag
+                if args.reload:
+                    print("\n🗑️  Clearing existing data (--reload flag)...")
                     db.clear_all_data()
                     clear_existing = False  # Already cleared
-                elif choice == "3":
-                    print("\n⏭️  Skipping data loading")
-                    skip_data = True
                 else:
-                    print("\n📊 Using upsert mode (will skip duplicates)")
+                    # Automatically use existing data (no prompt)
+                    print("\n📊 Using existing data (no reload needed)")
+                    print("💡 Tip: Use --reload flag to clear and reload all data")
                     clear_existing = False
+                    skip_data = True  # Skip loading since we have data
             else:
                 clear_existing = False
 
@@ -332,7 +350,7 @@ def main():
 
     print("What was demonstrated:")
     print("  ✅ Data ingestion and validation")
-    print("  ✅ SQL database storage (DuckDB)")
+    print("  ✅ SQL database storage (PostgreSQL)")
     print("  ✅ Vector database indexing (ChromaDB)")
     print("  ✅ 5 specialized agents:")
     print("     • Data Analyst Agent")
